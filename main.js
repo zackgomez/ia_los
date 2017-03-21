@@ -24,7 +24,6 @@ class Board {
   }
 }
 
-
 const board = new Board();
 
 for (let y = 0; y < board.height; y++) {
