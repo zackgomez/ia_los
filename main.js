@@ -1,8 +1,11 @@
-import fs from 'fs'
+import fs from 'fs';
 
-const board = [
+const test_board = [
   '-', '-', 'b', '-',
   '-', 'X', '-', '-',
   '-', '-', 'X', '-',
   '-', 'a', '-', '-',
 ];
+
+class Board {
+}
