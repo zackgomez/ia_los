@@ -9,5 +9,5 @@ $ yarn
 
 # Run
 ```
-./node_modules/.bin/babel-node main
+yarn run main
 ```
