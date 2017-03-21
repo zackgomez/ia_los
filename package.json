@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "babel-cli": "^6.24.0",
+    "babel-preset-env": "^1.2.2"
+  },
+  "scripts": {
+    "main": "./node_modules/.bin/babel-node main.js"
+  }
+}
