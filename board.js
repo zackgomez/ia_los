@@ -12,6 +12,9 @@ export type Point = {
   y: number,
 };
 export type LineOfSightResult = {
+  hasLineOfSight: bool,
+  sourceCorner: ?Corner,
+  targetCorners: ?[Corner],
 };
 export type RayCastPoint = {
   x: number,
@@ -58,16 +61,27 @@ export default class Board {
     targetY: number,
   ): LineOfSightResult {
     const results = CORNERS.map(sourceCorner => {
-      return CORNERS.map(targetCorner => {
+      return _.flatMap(CORNERS, targetCorner => {
         const {blocked} = this.checkRay(
           {x: sourceX, y: sourceY, corner: sourceCorner},
           {x: targetX, y: targetY, corner: targetCorner},
         );
-        return {sourceCorner, targetCorner, blocked};
+        if (blocked) {
+          return [];
+        }
+        return {sourceCorner, targetCorner};
       });
     });
     console.log(results);
-    return {};
+
+    let hasLineOfSight = false;
+    let sourceCorner = null;
+    let targetCorners = null;
+    return {
+      hasLineOfSight,
+      sourceCorner,
+      targetCorner,
+    };
   }
 
   /* x and y are in corner space, (0, 0) to (width, height) inclusive */
