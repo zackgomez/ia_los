@@ -5,6 +5,7 @@ import {gridCastRay} from './RayCast';
 
 export type Cell = 'Empty' | 'Blocking' | 'Source' | 'Target';
 export type Corner = 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
+export const CORNERS = ['TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'];
 
 export type Point = {
   x: number,
@@ -56,8 +57,19 @@ export default class Board {
     targetX: number,
     targetY: number,
   ): LineOfSightResult {
+    const results = CORNERS.map(sourceCorner => {
+      return CORNERS.map(targetCorner => {
+        const {blocked} = this.checkRay(
+          {x: sourceX, y: sourceY, corner: sourceCorner},
+          {x: targetX, y: targetY, corner: targetCorner},
+        );
+        return {sourceCorner, targetCorner, blocked};
+      });
+    });
+    console.log(results);
     return {};
   }
+
   /* x and y are in corner space, (0, 0) to (width, height) inclusive */
   checkRay(
     source: RayCastPoint,
@@ -66,18 +78,23 @@ export default class Board {
     let sourcePoint = cellPointToCornerPoint({x: source.x, y: source.y}, source.corner);
     let destPoint = cellPointToCornerPoint({x: dest.x, y: dest.y}, dest.corner);
 
-    console.log('checkRay', sourcePoint, destPoint)
+    //console.log('checkRay', sourcePoint, destPoint)
 
-    let blocked = false;
-    gridCastRay(sourcePoint.x, sourcePoint.y, destPoint.x, destPoint.y, (x, y) => {
-      const cell = this.get(x, y);
-      console.log(x, y, cell);
-      if (cell === 'Empty' || cell === 'Source' || cell === 'Target') {
-        return;
-      }
-      console.log('blocked by', x, y);
-      blocked = true;
-    });
+    const blocked = !!gridCastRay(
+      sourcePoint.x,
+      sourcePoint.y,
+      destPoint.x,
+      destPoint.y,
+      (x, y) => {
+        const cell = this.get(x, y);
+        //console.log(x, y, cell);
+        if (cell === 'Empty' || cell === 'Source' || cell === 'Target') {
+          return;
+        }
+        //console.log('blocked by', x, y);
+        return true;
+      },
+    );
     return {blocked};
   }
 }

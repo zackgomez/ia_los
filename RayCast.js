@@ -4,8 +4,8 @@ export function gridCastRay(
   y0: number,
   x1: number,
   y1: number,
-  visitor: (x: number, y: number) => void,
-): void {
+  visitor: (x: number, y: number) => ?T,
+): ?T {
   const dx = Math.abs(x1 - x0);
   const dy = Math.abs(y1 - y0);
 
@@ -26,7 +26,10 @@ export function gridCastRay(
     } else if (x_inc < 0 && (x < x1)) {
       return;
     }
-    visitor(x, y);
+    const ret = visitor(x, y);
+    if (ret !== null && ret !== undefined) {
+      return ret;
+    }
 
     if (error === 0) {
       x = x + x_inc;
