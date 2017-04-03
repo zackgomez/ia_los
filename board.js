@@ -17,6 +17,9 @@ export type RayCastPoint = {
   y: number,
   corner: Corner,
 };
+export type RayCheckResult = {
+  blocked: bool,
+};
 
 function cellPointToCornerPoint(
   cellPoint: Point,
@@ -56,15 +59,26 @@ export default class Board {
     return {};
   }
   /* x and y are in corner space, (0, 0) to (width, height) inclusive */
-  castRay(
+  checkRay(
     source: RayCastPoint,
     dest: RayCastPoint,
-    visitor: (cellX: number, cellY: number) => void,
-  ): void {
+  ): RayCheckResult {
     let sourcePoint = cellPointToCornerPoint({x: source.x, y: source.y}, source.corner);
     let destPoint = cellPointToCornerPoint({x: dest.x, y: dest.y}, dest.corner);
 
-    gridCastRay(sourcePoint.x, sourcePoint.y, destPoint.x, destPoint.y, visitor);
+    console.log('checkRay', sourcePoint, destPoint)
+
+    let blocked = false;
+    gridCastRay(sourcePoint.x, sourcePoint.y, destPoint.x, destPoint.y, (x, y) => {
+      const cell = this.get(x, y);
+      console.log(x, y, cell);
+      if (cell === 'Empty' || cell === 'Source' || cell === 'Target') {
+        return;
+      }
+      console.log('blocked by', x, y);
+      blocked = true;
+    });
+    return {blocked};
   }
 }
 

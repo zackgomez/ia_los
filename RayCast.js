@@ -9,19 +9,24 @@ export function gridCastRay(
   const dx = Math.abs(x1 - x0);
   const dy = Math.abs(y1 - y0);
 
-  const x_inc = (x1 > x0) ? 1 : -1;
-  const y_inc = (y1 > y0) ? 1 : -1;
+  const x_inc = x1 === x0 ? 0 : ((x1 > x0) ? 1 : -1);
+  const y_inc = y1 === y0 ? 0 : ((y1 > y0) ? 1 : -1);
 
-  let x = x0;
-  let y = y0;
+  let x = Math.floor(x0 + x_inc/2);
+  let y = Math.floor(y0 + y_inc/2);
   let error = dx - dy;
 
-  let path = [];
-  for (;;) {
-    visitor(x, y);
-    if (x === x1 && y === y1) {
-      break;
+  let n = dx + dy;
+  if (dx === dy) {
+    n = dx;
+  }
+  for (; n > 0; n--) {
+    if (x_inc > 0 && (x === x1)) {
+      return;
+    } else if (x_inc < 0 && (x < x1)) {
+      return;
     }
+    visitor(x, y);
 
     if (error === 0) {
       x = x + x_inc;

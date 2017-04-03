@@ -26,26 +26,18 @@ async function main() {
   rows = rows.map(row => row.split(''));
   const board = boardFromRows(rows);
 
-  board.castRay(
+  console.log(board.checkRay(
     {x: 0, y: 3, corner: 'TopLeft'},
     {x: 1, y: 1, corner: 'TopLeft'},
-    (x, y) => console.log(x, y),
-  );
-  board.castRay(
+  ));
+  console.log(board.checkRay(
     {x: 0, y: 3, corner: 'TopLeft'},
     {x: 1, y: 1, corner: 'BottomLeft'},
-    (x, y) => console.log(x, y),
-  );
-  board.castRay(
-    {x: 1, y: 1, corner: 'TopLeft'},
+  ));
+  console.log(board.checkRay(
     {x: 0, y: 3, corner: 'TopLeft'},
-    (x, y) => console.log(x, y),
-  );
-  board.castRay(
-    {x: 1, y: 1, corner: 'BottomLeft'},
-    {x: 0, y: 3, corner: 'TopLeft'},
-    (x, y) => console.log(x, y),
-  );
+    {x: 1, y: 1, corner: 'BottomRight'},
+  ));
 
   console.log('Line sight 0,3 => 1,1');
   console.log(board.checkLineOfSight(0, 3, 1, 1));
