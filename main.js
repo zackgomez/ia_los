@@ -2,23 +2,8 @@
 import fs from 'mz/fs';
 import _ from 'lodash';
 
-type Cell = 'Empty' | 'Blocking' | 'Source' | 'Target';
-
-class Board {
-  width: number;
-  height: number;
-  board: Array<Cell>;
-
-  constructor(width: number, height: number, board: Array<Cell>) {
-    this.height = height;
-    this.width = width;
-    this.board = board;
-  }
-
-  get(x: number, y: number): Cell {
-    return this.board[x + y * this.width];
-  }
-}
+import Board, {boardFromRows} from './board';
+import type {Cell} from './board';
 
 async function main() {
   if (process.argv.length <= 2) {
@@ -38,34 +23,34 @@ async function main() {
     process.exit(-1);
   }
 
-  const height = rows.length;
-  const width = rows[0].length;
-  const valid_rows = rows.every(row => {
-    return row.length === width;
-  });
-  if (!valid_rows) {
-    console.log('invalid row');
-  }
+  rows = rows.map(row => row.split(''));
+  const board = boardFromRows(rows);
 
-  const input_to_cell_map = {
-    '-': 'Empty',
-    'X': 'Blocking',
-    'a': 'Source',
-    'b': 'Target',
-  };
+  board.castRay(
+    {x: 0, y: 3, corner: 'TopLeft'},
+    {x: 1, y: 1, corner: 'TopLeft'},
+    (x, y) => console.log(x, y),
+  );
+  board.castRay(
+    {x: 0, y: 3, corner: 'TopLeft'},
+    {x: 1, y: 1, corner: 'BottomLeft'},
+    (x, y) => console.log(x, y),
+  );
+  board.castRay(
+    {x: 1, y: 1, corner: 'TopLeft'},
+    {x: 0, y: 3, corner: 'TopLeft'},
+    (x, y) => console.log(x, y),
+  );
+  board.castRay(
+    {x: 1, y: 1, corner: 'BottomLeft'},
+    {x: 0, y: 3, corner: 'TopLeft'},
+    (x, y) => console.log(x, y),
+  );
 
-  const raw_board = _.flatten(rows.map(row => row.split(''))).map(x => {
-    const ret = input_to_cell_map[x];
-    if (!ret) {
-      throw new Error(`bad input: '${x}'`);
-    }
-    return ret;
-  });
-
-  const board = new Board(width, height, raw_board);
+  console.log('Line sight 0,3 => 1,1');
+  console.log(board.checkLineOfSight(0, 3, 1, 1));
 }
-
 main().catch(e => {
-  console.log(e);
-  throw e;
+  console.error(e);
+  process.exit(-1);
 });
