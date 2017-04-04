@@ -1,4 +1,21 @@
 
+export function gcd(a: number, b: number): number {
+  if (a === 0 || b === 0) {
+    return 0;
+  }
+  while (true) {
+    if (a < b) {
+      let temp = a;
+      a = b;
+      b = temp;
+    }
+    const r = a % b;
+    if (r === 0) return b;
+    a = b;
+    b = r;
+  }
+}
+
 export function gridCastRay(
   x0: number,
   y0: number,
@@ -16,10 +33,7 @@ export function gridCastRay(
   let y = Math.floor(y0 + y_inc/2);
   let error = dx - dy;
 
-  let n = dx + dy;
-  if (dx === dy) {
-    n = dx;
-  }
+  let n = dx + dy - gcd(dx, dy);
   for (; n > 0; n--) {
     if (x_inc > 0 && (x === x1)) {
       return;
