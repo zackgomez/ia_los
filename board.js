@@ -3,8 +3,10 @@
 import _ from 'lodash';
 import {gridCastRay} from './RayCast';
 
-export type Cell = 'Empty' | 'Blocking' | 'Source' | 'Target';
+export type Cell = 'Empty' | 'Blocking' | 'Source' | 'Target' | 'OutOfBounds';
 export type Corner = 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
+export type Edge = 'Clear' | 'Blocked';
+export type EdgeDirection = 'Down' | 'Right';
 export const CORNERS = ['TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'];
 
 export type Point = {
@@ -46,8 +48,36 @@ export default class Board {
     this.board = board;
   }
 
-  get(x: number, y: number): Cell {
+  getCell(x: number, y: number): Cell {
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+      return 'OutOfBounds';
+    }
     return this.board[x + y * this.width];
+  }
+  getEdge(x: number, y: number, dir: EdgeDirection): Edge {
+    if (x < 0 || x > this.width || y < 0 || y > this.height) {
+      throw new Error(`bad coordinate (${x}, ${y})`);
+    }
+    let cell = this.getCell(x, y);
+    if (cell === 'Blocking' || cell === 'OutOfBounds') {
+      return 'Blocked';
+    }
+    if (dir === 'Down') {
+      x = x - 1;
+      if (x < 0) {
+        return 'Blocked';
+      }
+    } else {
+      y = y - 1;
+      if (y < 0) {
+        return 'Blocked';
+      }
+    }
+    cell = this.getCell(x, y);
+    if (cell === 'Blocking' || cell === 'OutOfBounds') {
+      return 'Blocked';
+    }
+    return 'Clear';
   }
 
   /*
@@ -100,7 +130,7 @@ export default class Board {
       destPoint.x,
       destPoint.y,
       (x, y) => {
-        const cell = this.get(x, y);
+        const cell = this.getCell(x, y);
         //console.log(x, y, cell);
         if (cell === 'Empty' || cell === 'Source' || cell === 'Target') {
           return;
@@ -110,6 +140,16 @@ export default class Board {
       },
     );
     return {blocked};
+  }
+
+  /* x and y are in cell space */
+  areCellsConnected(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+  ): bool {
+    throw new Error('unimplemented');
   }
 }
 
