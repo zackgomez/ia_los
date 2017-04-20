@@ -1,6 +1,7 @@
 /* @flow */
 
 import _ from 'lodash';
+import invariant from 'invariant';
 import {gridCastRay} from './RayCast';
 
 export type Cell = 'Empty' | 'Blocking' | 'Source' | 'Target' | 'OutOfBounds';
@@ -346,9 +347,7 @@ export default class Board {
     ).blocked;
     // console.log('after checking end point: ' + blocked);
 
-    if (!rayDirection) {
-      throw new Error('no ray direction, cannot cast ray');
-    }
+    invariant(rayDirection, 'no ray direction, cannot cast ray');
     // Check ray blockers
     blocked = blocked || !!gridCastRay(
       sourcePoint.x,
@@ -379,6 +378,7 @@ export default class Board {
         return true;
       },
       (x, y) => {
+        invariant(rayDirection, 'no ray direction, cannot cast ray');
         if (!this.checkPoint(
           {x, y}, 
           oppositeDirection(rayDirection),

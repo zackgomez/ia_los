@@ -25,22 +25,6 @@ async function main() {
 
   rows = rows.map(row => row.split(''));
   const board = boardFromRows(rows);
-
-  console.log(board.checkRay(
-    {x: 0, y: 3, corner: 'TopLeft'},
-    {x: 1, y: 1, corner: 'TopLeft'},
-  ));
-  console.log(board.checkRay(
-    {x: 0, y: 3, corner: 'TopLeft'},
-    {x: 1, y: 1, corner: 'BottomLeft'},
-  ));
-  console.log(board.checkRay(
-    {x: 0, y: 3, corner: 'TopLeft'},
-    {x: 1, y: 1, corner: 'BottomRight'},
-  ));
-
-  console.log('Line sight 0,3 => 1,1');
-  console.log(board.checkLineOfSight(0, 3, 1, 1));
 }
 main().catch(e => {
   console.error(e);

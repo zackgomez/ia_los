@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "express": "^4.15.2",
+    "invariant": "^2.2.2",
     "lodash": "^4.17.4",
     "mz": "^2.6.0",
     "pixi.js": "^4.5.0",

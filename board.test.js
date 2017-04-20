@@ -59,8 +59,6 @@ test('blocked edges', () => {
     let result = board.checkLineOfSight(check[0], check[1], check[2], check[3]);
     board.printLineOfSightResult(check[0], check[1], check[2], check[3], result);
     console.log(result);
-    results.push(result);
+    expect(result.hasLineOfSight).toBe(expectedResults[i]);
   }
-
-  expect(results.every((s, i) => s.hasLineOfSight === expectedResults[i])).toBe(true);
 });
