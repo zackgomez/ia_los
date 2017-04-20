@@ -15,7 +15,8 @@ const config = {
       use: {
         loader: 'babel-loader',
         options: {
-          presets: ['env']
+          presets: ['env'],
+          plugins: ['transform-flow-strip-types', 'babel-plugin-transform-class-properties'],
         }
       }
     }

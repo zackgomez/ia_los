@@ -2,6 +2,7 @@
 
 import raycast from './RayCast.js';
 import 'pixi.js';
+import Board, {boardFromRows} from './board.js';
 
 const WIDTH = 640;
 const HEIGHT = 480;
