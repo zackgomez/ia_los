@@ -1,5 +1,4 @@
 /* @flow */
-import fs from 'mz/fs';
 import _ from 'lodash';
 
 import type {Direction} from './board';
