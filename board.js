@@ -38,7 +38,7 @@ export type RayCheckResult = {
   blocked: bool,
 };
 
-function cellToPoint(
+export function cellToPoint(
   cellPoint: Point,
   corner: Corner,
 ): Point {
