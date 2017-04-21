@@ -2,12 +2,13 @@
 
 import raycast from './RayCast.js';
 import 'pixi.js';
-import Board, {boardFromRows} from './board.js';
+import Board, {boardFromMapFile} from './board.js';
+import 'isomorphic-fetch';
 
-const WIDTH = 640;
-const HEIGHT = 480;
+const VIEWPORT_WIDTH = 640;
+const VIEWPORT_HEIGHT = 480;
 
-let renderer = new PIXI.autoDetectRenderer(WIDTH, HEIGHT);
+let renderer = new PIXI.autoDetectRenderer(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 renderer.backgroundColor = 0x777777;
 //renderer.autoResize = true;
 
@@ -15,18 +16,57 @@ document.body.appendChild(renderer.view);
 
 let stage = new PIXI.Container();
 
-let grid = new PIXI.Graphics();
-grid.lineStyle(2, 0x000000, 1);
-for (let x = 0; x <= WIDTH; x += 50) {
-  grid.moveTo(x, 0);
-  grid.lineTo(x, HEIGHT);
-}
-for (let y = 0; y <= HEIGHT; y += 50) {
-  grid.moveTo(0, y);
-  grid.lineTo(WIDTH, y);
-}
-stage.addChild(grid);
+const interactionManager = renderer.plugins.interaction;
 
+let dragData = {
+  startCellX: null,
+  startCellY: null,
+  startX: null,
+  startY: null,
+  entityStartX: null,
+  entityStaryY: null,
+  entity: null,
+};
+
+const SCALE = 50;
+
+function getGridLayer(board) {
+  const width = board.getWidth();
+  const height = board.getHeight();
+  const grid = new PIXI.Graphics();
+  grid.lineStyle(2, 0x000000, 1);
+  for (let x = 0; x <= width; x++) {
+    grid.moveTo(x * SCALE, 0);
+    grid.lineTo(x * SCALE, height * SCALE);
+  }
+  for (let y = 0; y <= height; y++) {
+    grid.moveTo(0, y * SCALE);
+    grid.lineTo(width * SCALE, y * SCALE);
+  }
+  return grid;
+}
+
+function getEdgeLayer(board) {
+  let edgeGraphics = new PIXI.Graphics();
+  edgeGraphics.lineStyle(4, 0xFF0000, 1);
+
+  for (let x = 0; x < board.getWidth(); x++) {
+    for (let y = 0; y < board.getHeight(); y++) {
+      ['Down', 'Right'].forEach(dir => {
+        if (board.getEdge(x, y, dir) === 'Clear') {
+          return;
+        }
+        edgeGraphics.moveTo(SCALE * x, SCALE * y);
+        edgeGraphics.lineTo(
+          SCALE * (x + (dir === 'Right' ? 1 : 0)),
+          SCALE * (y + (dir === 'Down' ? 1 : 0))
+        );
+      });
+    }
+  }
+
+  return edgeGraphics;
+}
 
 let figure = new PIXI.Graphics();
 figure.beginFill(0x9966FF);
@@ -46,18 +86,6 @@ let mouseInfo = new PIXI.Text('Derp', new PIXI.TextStyle({
   fill: '#00FF00',
 }));
 stage.addChild(mouseInfo);
-
-const interactionManager = renderer.plugins.interaction;
-
-let dragData = {
-  startCellX: null,
-  startCellY: null,
-  startX: null,
-  startY: null,
-  entityStartX: null,
-  entityStaryY: null,
-  entity: null,
-};
 
 function render() {
   const mousePosition = interactionManager.mouse.global;
@@ -110,3 +138,20 @@ interactionManager.on('rightdown', e => {
 });
 
 render();
+
+function setBoard(board) {
+  stage.addChild(getGridLayer(board));
+  stage.addChild(getEdgeLayer(board));
+}
+
+fetch('/api/board').then(response => {
+  if (!response.ok) {
+    alert('Unable to fetch board');
+  }
+  return response.text();
+}).then(text => {
+  const board = boardFromMapFile(text);
+  board.clearBlocking();
+  board.printBoard();
+  setBoard(board);
+});

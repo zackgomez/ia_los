@@ -4,7 +4,7 @@ import _ from 'lodash';
 import invariant from 'invariant';
 import {gridCastRay} from './RayCast';
 
-export type Cell = 'Empty' | 'Blocking' | 'Source' | 'Target' | 'OutOfBounds';
+export type Cell = 'Empty' | 'Blocking' | 'OutOfBounds';
 export type Corner = 'UpLeft' | 'UpRight' | 'DownLeft' | 'DownRight';
 export type Edge = 'Clear' | 'Blocked';
 export type EdgeDirection = 'Down' | 'Right';
@@ -153,11 +153,31 @@ export default class Board {
     this.downEdges = downEdges;
   }
 
+  getWidth(): number {
+    return this.width;
+  }
+
+  getHeight(): number {
+    return this.height;
+  }
+
   getCell(x: number, y: number): Cell {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
       return 'OutOfBounds';
     }
     return this.board[x + y * this.width];
+  }
+
+  setCell(x: number, y: number, cell: Cell): void {
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+      throw new Error(`setCell: (${x}, ${y}) is out of bounds`);
+    }
+    this.board[x + y * this.width] = cell;
+  }
+  clearBlocking(): void {
+    this.board = this.board.map(cell => {
+      return cell === 'Blocking' ? 'Empty' : cell;
+    });
   }
 
   getEdge(x: number, y: number, dir: Direction): Edge {
@@ -362,7 +382,7 @@ export default class Board {
         }
         const cell = this.getCell(x, y);
         // console.log(x, y, cell);
-        if (cell === 'Empty' || cell === 'Source' || cell === 'Target') {
+        if (cell === 'Empty') {
           return;
         }
         // console.log('ray blocked by cell:', x, y);
@@ -543,3 +563,9 @@ export function boardFromRows(rows: Array<Array<string>>): Board {
   return new Board(width, height, board, rightEdges, downEdges);
 }
 
+export function boardFromMapFile(contents: string): Board {
+  let rows = contents.split('\n');
+  rows = rows.filter(s => s.length > 0);
+  rows = rows.map(row => row.split(''));
+  return boardFromRows(rows);
+}
