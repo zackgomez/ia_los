@@ -71,4 +71,7 @@ test('ignore figures', () => {
   const targetY = 2;
   expect(board.checkLineOfSight(sourceX, sourceY, targetX, targetY, {ignoreFigures: false}).hasLineOfSight).toBe(false);
   expect(board.checkLineOfSight(sourceX, sourceY, targetX, targetY, {ignoreFigures: true}).hasLineOfSight).toBe(true);
+
+  expect(board.checkLineOfSight(3, 0, 5, 0, {ignoreFigures: false}).hasLineOfSight).toBe(false);
+  expect(board.checkLineOfSight(3, 0, 5, 0, {ignoreFigures: true}).hasLineOfSight).toBe(false);
 });
