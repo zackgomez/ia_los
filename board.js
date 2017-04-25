@@ -64,6 +64,15 @@ function pointToEdgePoint(
   throw new Error('not an edge direction');
 }
 
+function distSquared(
+  p0: Point,
+  p1: Point,
+): number {
+  let dx = p1.x - p0.x;
+  let dy = p1.y - p0.y;
+  return (dx * dx + dy * dy);
+}
+
 function oppositeDirection(dir) {
   let index = 0;
   for (let i = 0; i < DIRECTIONS.length; i++) {
@@ -224,9 +233,11 @@ export default class Board {
     let hasLineOfSight = false;
     let sourceCorner = null;
     let targetCorners = null;
+    let minDistSquaredSum = null;
     /*  
-     *  Loop over source corners, check equality, then check adjacency of target
-     *  corner results
+     *  Loop over source corners and adjacent target corners. If the rays are
+     *  non-parallel, it's a valid result. Return the result with the lowest 
+     *  sum of squared ray lengths.
      */
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
@@ -243,14 +254,13 @@ export default class Board {
           let p1 = cellToPoint({x: targetX, y: targetY}, c1);
           let p2 = cellToPoint({x: targetX, y: targetY}, c2);
           if (!areRaysParallel(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y)) {
-            hasLineOfSight = true;
-            sourceCorner = c0;
-            targetCorners = [c1, c2];
-            return {
-              hasLineOfSight,
-              sourceCorner,
-              targetCorners,
-            };
+            let distSquaredSum = distSquared(p0, p1) + distSquared(p0, p2);
+            if (!minDistSquaredSum || distSquaredSum < minDistSquaredSum) {
+              hasLineOfSight = true;
+              minDistSquaredSum = distSquaredSum;
+              sourceCorner = c0;
+              targetCorners = [c1, c2];
+            }
           }
         }
       }
