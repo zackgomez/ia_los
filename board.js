@@ -160,7 +160,8 @@ export default class Board {
   rightEdges: Array<Edge>;
   downEdges: Array<Edge>;
 
-  constructor(width: number,
+  constructor(
+    width: number,
     height: number,
     board: Array<Cell>,
     rightEdges: Array<Edge>,
@@ -596,4 +597,16 @@ export function boardFromMapFile(contents: string): Board {
   rows = rows.filter(s => s.length > 0);
   rows = rows.map(row => row.split(''));
   return boardFromRows(rows);
+}
+
+export function emptyBoard(width: number, height: number): Board {
+  const count = width * height;
+  const fillArray = (v) => _.fill(new Array(count), v);
+  return new Board(
+    width,
+    height,
+    fillArray('Empty'),
+    fillArray('Clear'),
+    fillArray('Clear'),
+  );
 }

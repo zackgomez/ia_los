@@ -2,7 +2,7 @@
 
 import raycast from './RayCast.js';
 import 'pixi.js';
-import Board, {boardFromMapFile, cellToPoint} from './board.js';
+import Board, {emptyBoard, boardFromMapFile, cellToPoint} from './board.js';
 import 'isomorphic-fetch';
 
 const VIEWPORT_WIDTH = 640;
@@ -257,6 +257,10 @@ function updateLineOfSight(board, figures, lineOfSightViews) {
     lineOfSightViews.layer.addChild(line);
   });
 }
+
+const board = emptyBoard(10, 10);
+setBoard(board);
+board.printBoard();
 
 fetch('/api/board').then(response => {
   if (!response.ok) {
