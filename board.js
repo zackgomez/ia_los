@@ -30,6 +30,13 @@ export type LineOfSightResult = {
   sourceCorner: ?Corner,
   targetCorners: ?[Corner, Corner],
 };
+export type LineOfSightFiguresResult = {
+  hasLineOfSight: bool,
+  sourceCell: ?Point,
+  targetCell: ?Point,
+  sourceCorner: ?Corner,
+  targetCorners: ?[Corner, Corner],
+};
 export type RayCastPoint = {
   x: number,
   y: number,
@@ -41,11 +48,13 @@ export type RayCheckResult = {
 
 export type LineOfSightOptions = {
   ignoreFigures: bool,
+  cellsToIgnore: Array<Point>,
 }
 
 export function defaultLineOfSightOptions(): LineOfSightOptions {
   return {
     ignoreFigures: false,
+    cellsToIgnore: [],
   };
 }
 
@@ -81,6 +90,21 @@ function distSquared(
 ): number {
   let dx = p1.x - p0.x;
   let dy = p1.y - p0.y;
+  return (dx * dx + dy * dy);
+}
+
+function distSquaredPointToCell(
+  p: Point,
+  c: Point,
+): number {
+  let dx = p.x - c.x;
+  let dy = p.y - c.y;
+  if (dx > 0) {
+    dx -= 1;
+  }
+  if (dy > 0) {
+    dy -= 1;
+  }
   return (dx * dx + dy * dy);
 }
 
@@ -220,6 +244,7 @@ export default class Board {
   }
 
   /*
+   * Check line of sight between two cells.
    * x and y are in square or cell space
    * (0, 0) to (width, height) exclusive
    */
@@ -237,6 +262,7 @@ export default class Board {
           {x: sourceX, y: sourceY, corner: sourceCorner},
           {x: targetX, y: targetY, corner: targetCorner},
           options.ignoreFigures,
+          options.cellsToIgnore,
         );
         if (blocked) {
           return [];
@@ -248,9 +274,10 @@ export default class Board {
     let sourceCorner = null;
     let targetCorners = null;
     let minDistSquaredSum = null;
-    /*  
+    let minSourcePoint = null; // tiebreaker if ray-sum distance is tied
+    /*
      *  Loop over source corners and adjacent target corners. If the rays are
-     *  non-parallel, it's a valid result. Return the result with the lowest 
+     *  non-parallel, it's a valid result. Return the result with the lowest
      *  sum of squared ray lengths.
      */
     for (let i = 0; i < 4; i++) {
@@ -272,8 +299,17 @@ export default class Board {
             if (!minDistSquaredSum || distSquaredSum < minDistSquaredSum) {
               hasLineOfSight = true;
               minDistSquaredSum = distSquaredSum;
+              minSourcePoint = distSquaredPointToCell(p0, {x: targetX, y: targetY});
               sourceCorner = c0;
               targetCorners = [c1, c2];
+            }
+            else if (distSquaredSum === minDistSquaredSum) {
+              let distSourcePoint = distSquaredPointToCell(p0, {x: targetX, y: targetY});
+              if (!minSourcePoint || distSourcePoint < minSourcePoint) {
+                minSourcePoint = distSourcePoint;
+                sourceCorner = c0;
+                targetCorners = [c1, c2];
+              }
             }
           }
         }
@@ -281,6 +317,62 @@ export default class Board {
     }
     return {
       hasLineOfSight,
+      sourceCorner,
+      targetCorners,
+    };
+  }
+
+  checkLineOfSightFigures(
+    sourceCells: Array<Point>,
+    targetCells: Array<Point>,
+    optionsIn: ?LineOfSightOptions,
+  ): LineOfSightFiguresResult {
+    let options = optionsIn || defaultLineOfSightOptions();
+    options.cellsToIgnore = _.unionWith(
+      options.cellsToIgnore,
+      sourceCells,
+      targetCells,
+      _.isEqual);
+    let hasLineOfSight = false;
+    let sourceCell = null;
+    let targetCell = null;
+    let sourceCorner = null;
+    let targetCorners = null;
+    let minDistSquaredSum = null;
+    for (let i = 0; i < sourceCells.length; i++) {
+      for (let j = 0; j < targetCells.length; j++) {
+        let c0 = sourceCells[i];
+        let c1 = targetCells[j];
+        let result = this.checkLineOfSight(
+          c0.x,
+          c0.y,
+          c1.x,
+          c1.y,
+          options,
+        );
+        if (result.hasLineOfSight) {
+          invariant(result.sourceCorner, 'no source corner for LoS result');
+          let p0 = cellToPoint(c0, result.sourceCorner);
+          invariant(result.targetCorners, 'no target corners for LoS result');
+          let p1 = cellToPoint(c1, result.targetCorners[0]);
+          invariant(result.targetCorners, 'no target corners for LoS result');
+          let p2 = cellToPoint(c1, result.targetCorners[1]);
+          let distSquaredSum = distSquared(p0, p1) + distSquared(p0, p2);
+          if (!minDistSquaredSum || distSquaredSum < minDistSquaredSum) {
+            hasLineOfSight = true;
+            minDistSquaredSum = distSquaredSum;
+            sourceCell = c0;
+            targetCell = c1;
+            sourceCorner = result.sourceCorner;
+            targetCorners = result.targetCorners;
+          }
+        }
+      }
+    }
+    return {
+      hasLineOfSight,
+      sourceCell,
+      targetCell,
       sourceCorner,
       targetCorners,
     };
@@ -320,8 +412,6 @@ export default class Board {
         checkEdgePoint.x,
         checkEdgePoint.y,
         checkEdgePoint.dir) === 'Blocked') {
-        // console.log('checkPoint: CW blocked at idx = ' + checkIndex);
-        // console.log(checkEdgePoint);
         blockedCW = true;
       }
     }
@@ -347,8 +437,6 @@ export default class Board {
         checkEdgePoint.x,
         checkEdgePoint.y,
         checkEdgePoint.dir) === 'Blocked') {
-        // console.log('checkPoint: CCW blocked at idx = ' + checkIndex);
-        // console.log(checkEdgePoint);
         blockedCCW = true;
       }
     }
@@ -360,11 +448,11 @@ export default class Board {
     source: RayCastPoint,
     dest: RayCastPoint,
     ignoreFigures: bool,
+    cellsToIgnore: ?Array<Point>,
   ): RayCheckResult {
     let sourcePoint = cellToPoint({x: source.x, y: source.y}, source.corner);
     let destPoint = cellToPoint({x: dest.x, y: dest.y}, dest.corner);
     let blocked = false;
-    // console.log('checkRay', sourcePoint, destPoint);
 
     // Check start and end points
     if (_.isEqual(sourcePoint, destPoint)) {
@@ -384,13 +472,11 @@ export default class Board {
       oppositeDirection(source.corner),
       rayDirection
     ).blocked;
-    // console.log('after checking start point: ' + blocked);
     blocked = blocked || this.checkPoint(
       destPoint,
       oppositeDirection(rayDirection),
       oppositeDirection(dest.corner)
     ).blocked;
-    // console.log('after checking end point: ' + blocked);
 
     invariant(rayDirection, 'no ray direction, cannot cast ray');
     // Check ray blockers
@@ -403,26 +489,25 @@ export default class Board {
         if (ignoreFigures) {
           return;
         }
-        // console.log('Checking cell: ', x, y);
         if ((x === source.x && y === source.y) || (x === dest.x && y === dest.y)) {
-          // console.log('cell is source or target so not blocking');
           return;
         }
+        if (cellsToIgnore) {
+          if (_.some(cellsToIgnore, {x, y})) {
+            return;
+          }
+        }
         const cell = this.getCell(x, y);
-        // console.log(x, y, cell);
         if (cell === 'Empty') {
           return;
         }
-        // console.log('ray blocked by cell:', x, y);
         return true;
       },
       (x, y, dir) => {
         const edge = this.getEdge(x, y, dir);
-        // console.log(x, y, dir, edge);
         if (edge === 'Clear') {
           return;
         }
-        // console.log('blocked by edge:', x, y, dir);
         return true;
       },
       (x, y) => {
@@ -434,12 +519,31 @@ export default class Board {
           ).blocked) {
           return;
         }
-        // console.log('blocked by point:', x, y);
         return true;
       },
     );
-    // console.log('after checking gridCastRay: ' + blocked);
     return {blocked};
+  }
+
+  areCellsAdjacent(
+    c0: Point,
+    c1: Point,
+  ): bool {
+    let dx = c1.x - c0.x;
+    let dy = c1.y - c0.y;
+    if (dx === 0 && Math.abs(dy) === 1) {
+      return this.getEdge(c0.x, Math.max(c0.y, c1.y), 'Right') !== 'Blocked';
+    }
+    else if (Math.abs(dx) === 1 && dy === 0) {
+      return this.getEdge(Math.max(c0.x, c1.x), c0.y, 'Down') !== 'Blocked';
+    }
+    else if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {
+      let dir = directionFromRay(c0.x, c0.y, c1.x, c1.y);
+      let point = {x: Math.max(c0.x, c1.x), y: Math.max(c0.y, c1.y)};
+      invariant(dir, 'invalid cell-to-cell direction');
+      return !this.checkPoint(point, oppositeDirection(dir), dir).blocked;
+    }
+    return false;
   }
 
   /* x and y are in cell space */
@@ -460,7 +564,7 @@ export default class Board {
     result: LineOfSightResult
   ): void {
     if (!result.hasLineOfSight) {
-      this.printBoard({x: sourceX, y: sourceY}, {x: targetX, y: targetY});
+      this.printBoard([{x: sourceX, y: sourceY}], [{x: targetX, y: targetY}]);
       return;
     }
     let markedCorners = [];
@@ -480,10 +584,36 @@ export default class Board {
         result.targetCorners[i]
       ));
     }
-    this.printBoard({x: sourceX, y: sourceY}, {x: targetX, y: targetY}, markedCorners);
+    this.printBoard([{x: sourceX, y: sourceY}], [{x: targetX, y: targetY}], markedCorners);
   }
 
-  printBoard(source: ?Point, target: ?Point, markedCorners: ?Array<Point>): void {
+  printLineOfSightFiguresResult(
+    sourceCells: Array<Point>,
+    targetCells: Array<Point>,
+    result: LineOfSightFiguresResult
+  ): void {
+    if (!result.hasLineOfSight) {
+      this.printBoard(sourceCells, targetCells);
+      return;
+    }
+    let markedCorners = [];
+    invariant(result.sourceCorner, 'no source corner specified in LoS result');
+    invariant(result.sourceCell, 'no source cell specified in LoS result');
+    markedCorners.push(cellToPoint(result.sourceCell, result.sourceCorner));
+    invariant(result.targetCorners, 'no source corner specified in LoS result');
+    invariant(result.targetCell, 'no source cell specified in LoS result');
+    markedCorners.push(cellToPoint(result.targetCell, result.targetCorners[0]));
+    invariant(result.targetCorners, 'no source corner specified in LoS result');
+    invariant(result.targetCell, 'no source cell specified in LoS result');
+    markedCorners.push(cellToPoint(result.targetCell, result.targetCorners[1]));
+    this.printBoard(sourceCells, targetCells, markedCorners);
+  }
+
+  printBoard(
+    sourceCells: ?Array<Point>,
+    targetCells: ?Array<Point>,
+    markedCorners: ?Array<Point>
+  ): void {
     let text = ''
     for (let j = 0; j < this.height; j++) {
       if (true) {
@@ -498,10 +628,10 @@ export default class Board {
         if (true) {
           text += (this.getEdge(i, j, 'Down') === 'Clear') ? ' ' : '|';
         }
-        if (_.isEqual({x: i, y: j}, source)) {
+        if (_.some(sourceCells, {x: i, y: j})) {
           text += 'S';
         }
-        else if (_.isEqual({x: i, y: j}, target)) {
+        else if (_.some(targetCells, {x: i, y: j})) {
           text += 'T';
         }
         else if (this.getCell(i, j) === 'Empty') {
