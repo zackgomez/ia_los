@@ -1,15 +1,16 @@
 import Board, {boardFromRows} from './board';
 import fs from 'mz/fs';
 
+const contents = fs.readFileSync('derpy.map', {encoding: 'utf8'});
+let rows = contents.split('\n');
+rows = rows.filter(s => s.length > 0);
+
+rows = rows.map(row => row.split(''));
+const board = boardFromRows(rows);
+
 test('blocked edges', () => {
-  const contents = fs.readFileSync('derpy.map', {encoding: 'utf8'});
   console.log('Read Map:');
   console.log(contents);
-  let rows = contents.split('\n');
-  rows = rows.filter(s => s.length > 0);
-
-  rows = rows.map(row => row.split(''));
-  const board = boardFromRows(rows);
   console.log('Original board:');
   board.printBoard();
   console.log('Testing line of sight...');
@@ -31,15 +32,15 @@ test('blocked edges', () => {
     [0, 0, 1, 1],
     [1, 1, 0, 0],
     [0, 0, 5, 1],
-    [5, 1, 0, 0],        
+    [5, 1, 0, 0],
   ];
   let expectedResults = [
-    false, 
-    true, 
-    true, 
-    true, 
-    true, 
-    true, 
+    false,
+    true,
+    true,
+    true,
+    true,
+    true,
     true,
     true,
     false,
@@ -61,4 +62,16 @@ test('blocked edges', () => {
     console.log(result);
     expect(result.hasLineOfSight).toBe(expectedResults[i]);
   }
+});
+
+test('ignore figures', () => {
+  const sourceX = 1;
+  const sourceY = 0;
+  const targetX = 1;
+  const targetY = 2;
+  expect(board.checkLineOfSight(sourceX, sourceY, targetX, targetY, {ignoreFigures: false}).hasLineOfSight).toBe(false);
+  expect(board.checkLineOfSight(sourceX, sourceY, targetX, targetY, {ignoreFigures: true}).hasLineOfSight).toBe(true);
+
+  expect(board.checkLineOfSight(3, 0, 5, 0, {ignoreFigures: false}).hasLineOfSight).toBe(false);
+  expect(board.checkLineOfSight(3, 0, 5, 0, {ignoreFigures: true}).hasLineOfSight).toBe(false);
 });

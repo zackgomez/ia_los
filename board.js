@@ -2,6 +2,7 @@
 
 import _ from 'lodash';
 import invariant from 'invariant';
+import nullthrows from 'nullthrows';
 import {gridCastRay} from './RayCast';
 
 export type Cell = 'Empty' | 'Blocking' | 'OutOfBounds';
@@ -37,6 +38,16 @@ export type RayCastPoint = {
 export type RayCheckResult = {
   blocked: bool,
 };
+
+export type LineOfSightOptions = {
+  ignoreFigures: bool,
+}
+
+export function defaultLineOfSightOptions(): LineOfSightOptions {
+  return {
+    ignoreFigures: false,
+  };
+}
 
 export function cellToPoint(
   cellPoint: Point,
@@ -194,10 +205,10 @@ export default class Board {
       return 'Blocked';
     }
     if (x === 0 && dir === 'Down') {
-      return 'Blocked';    
+      return 'Blocked';
     }
     if (y === 0 && dir === 'Right') {
-      return 'Blocked';    
+      return 'Blocked';
     }
     if (dir === 'Down') {
       return this.downEdges[x + y * this.width];
@@ -217,12 +228,15 @@ export default class Board {
     sourceY: number,
     targetX: number,
     targetY: number,
+    optionsIn: ?LineOfSightOptions,
   ): LineOfSightResult {
+    const options = optionsIn || defaultLineOfSightOptions();
     const results = CORNERS.map(sourceCorner => {
       return _.flatMap(CORNERS, targetCorner => {
         const {blocked} = this.checkRay(
           {x: sourceX, y: sourceY, corner: sourceCorner},
           {x: targetX, y: targetY, corner: targetCorner},
+          options.ignoreFigures,
         );
         if (blocked) {
           return [];
@@ -245,10 +259,10 @@ export default class Board {
         let c1 = CORNERS[j];
         let c2 = CORNERS[(j + 1) % 4];
         if (
-          results[i].some(p => 
+          results[i].some(p =>
             (p.sourceCorner === c0 && p.targetCorner === c1)) &&
-          results[i].some(p => 
-            (p.sourceCorner === c0 && p.targetCorner === c2))        
+          results[i].some(p =>
+            (p.sourceCorner === c0 && p.targetCorner === c2))
           ) {
           let p0 = cellToPoint({x: sourceX, y: sourceY}, c0);
           let p1 = cellToPoint({x: targetX, y: targetY}, c1);
@@ -303,8 +317,8 @@ export default class Board {
         throw new Error('edge not found');
       }
       if (this.getEdge(
-        checkEdgePoint.x, 
-        checkEdgePoint.y, 
+        checkEdgePoint.x,
+        checkEdgePoint.y,
         checkEdgePoint.dir) === 'Blocked') {
         // console.log('checkPoint: CW blocked at idx = ' + checkIndex);
         // console.log(checkEdgePoint);
@@ -324,14 +338,14 @@ export default class Board {
       }
       if (checkIndex < 0) {
         checkIndex += 8;
-      }      
+      }
       let checkEdgePoint = pointToEdgePoint(point, DIRECTIONS[checkIndex]);
       if (!checkEdgePoint) {
         throw new Error('edge not found');
       }
       if (this.getEdge(
-        checkEdgePoint.x, 
-        checkEdgePoint.y, 
+        checkEdgePoint.x,
+        checkEdgePoint.y,
         checkEdgePoint.dir) === 'Blocked') {
         // console.log('checkPoint: CCW blocked at idx = ' + checkIndex);
         // console.log(checkEdgePoint);
@@ -345,6 +359,7 @@ export default class Board {
   checkRay(
     source: RayCastPoint,
     dest: RayCastPoint,
+    ignoreFigures: bool,
   ): RayCheckResult {
     let sourcePoint = cellToPoint({x: source.x, y: source.y}, source.corner);
     let destPoint = cellToPoint({x: dest.x, y: dest.y}, dest.corner);
@@ -385,6 +400,9 @@ export default class Board {
       destPoint.x,
       destPoint.y,
       (x, y) => {
+        if (ignoreFigures) {
+          return;
+        }
         // console.log('Checking cell: ', x, y);
         if ((x === source.x && y === source.y) || (x === dest.x && y === dest.y)) {
           // console.log('cell is source or target so not blocking');
@@ -410,7 +428,7 @@ export default class Board {
       (x, y) => {
         invariant(rayDirection, 'no ray direction, cannot cast ray');
         if (!this.checkPoint(
-          {x, y}, 
+          {x, y},
           oppositeDirection(rayDirection),
           rayDirection,
           ).blocked) {
@@ -450,7 +468,7 @@ export default class Board {
       throw new Error('no source corner specified in LoS result');
     }
     markedCorners.push(cellToPoint(
-      {x: sourceX, y: sourceY}, 
+      {x: sourceX, y: sourceY},
       result.sourceCorner
     ));
     if (!result.targetCorners) {
@@ -458,7 +476,7 @@ export default class Board {
     }
     for (let i = 0; i < result.targetCorners.length; i++) {
       markedCorners.push(cellToPoint(
-        {x: targetX, y: targetY}, 
+        {x: targetX, y: targetY},
         result.targetCorners[i]
       ));
     }
@@ -471,7 +489,7 @@ export default class Board {
       if (true) {
         for (let i = 0; i < this.width; i++) {
           text += (!!_.find(markedCorners, {x: i, y: j})) ? 'o' : '+';
-          text += (this.getEdge(i, j, 'Right') === 'Clear') ? ' ' : '-'; 
+          text += (this.getEdge(i, j, 'Right') === 'Clear') ? ' ' : '-';
         }
         text += (!!_.find(markedCorners, {x: this.width, y: j})) ? 'o' : '+';
         text += '\n';
@@ -490,7 +508,7 @@ export default class Board {
           text += ' ';
         }
         else {
-          text += 'X'; 
+          text += 'X';
         }
       }
       text += (this.getEdge(this.width, j, 'Down') === 'Clear') ? ' ' : '|';
@@ -498,7 +516,7 @@ export default class Board {
     }
     for (let i = 0; i < this.width; i++) {
       text += (!!_.find(markedCorners, {x: i, y: this.height})) ? 'o' : '+';
-      text += (this.getEdge(i, this.height, 'Right') === 'Clear') ? ' ' : '-'; 
+      text += (this.getEdge(i, this.height, 'Right') === 'Clear') ? ' ' : '-';
     }
     text += (!!_.find(markedCorners, {x: this.width, y: this.height})) ? 'o' : '+';
     console.log(text);
