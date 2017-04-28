@@ -157,6 +157,7 @@ function render() {
     root.addChild(getEdgeLayer(board));
     root.addChild(makeFigureLayer());
     root.addChild(makeLineOfSightLayer(board, figures));
+    root.addChild(makeUILayer(uiState));
   }
 
   let mouseInfo = new PIXI.Text('Derp', new PIXI.TextStyle({
@@ -178,14 +179,18 @@ interactionManager.on('mousemove', e => {
       x: dragData.entityStartX + (e.data.global.x - dragData.startX),
       y: dragData.entityStartY + (e.data.global.y - dragData.startY),
     };
+    render();
   }
-  render();
 });
 interactionManager.on('mousedown', e => {
   if (!e.currentTarget) {
     return;
   }
   if (dragData.entity) return;
+  const piece = figures[e.target.id];
+  if (!piece) {
+    return;
+  }
   dragData.entity = e.target;
   dragData.piece = figures[e.target.id];
   dragData.entityStartX = e.target.x;
@@ -217,7 +222,7 @@ interactionManager.on('mouseup', e => {
   render();
 });
 
-type ToolEnum = 'pointer';
+type ToolEnum = 'pointer' | 'terrain';
 type UIState = {
   currentTool: ToolEnum;
   availableTools: Array<ToolEnum>;
@@ -225,16 +230,42 @@ type UIState = {
 
 let uiState: UIState = {
   currentTool: 'pointer',
-  availableTools: [],
+  availableTools: ['pointer', 'terrain'],
 };
+
+function setCurrentTool(newTool: ToolEnum) {
+  uiState.currentTool = newTool;
+  render();
+}
 
 function makeUILayer(state: UIState) {
   let layer = new PIXI.Container();
 
+  let x = 10;
+  let y = 10;
+  const BUTTON_DIM = 30;
+
+  state.availableTools.forEach((tool) => {
+    const selected = tool === state.currentTool;
+    const style = {
+      align: 'center',
+      fontSize: 16,
+      fill: selected ? '#00FF00' : '#FFFFFF',
+    }
+    let button = new PIXI.Text(tool, style);
+    button.x = x;
+    button.y = y;
+    y += BUTTON_DIM;
+    button.interactive = true;
+    button.buttonMode = true;
+    button.on('pointerdown', () => {
+      setCurrentTool(tool);
+    });
+    layer.addChild(button);
+  });
+
   return layer;
 }
-
-render();
 
 let globalBoard = null;
 function setBoard(board) {
@@ -282,6 +313,11 @@ function updateLineOfSight(board: Board, figures) {
     }
   });
 
+  sourceX = nullthrows(sourceX);
+  sourceY = nullthrows(sourceY);
+  targetX = nullthrows(targetX);
+  targetY = nullthrows(targetY);
+
   console.log(sourceX, sourceY, targetX, targetY);
   let result = board.checkLineOfSight(sourceX, sourceY, targetX, targetY);
   console.log(result);
@@ -317,6 +353,7 @@ function makeLineOfSightLayer(board: Board, figures) {
 const board = emptyBoard(10, 10);
 setBoard(board);
 board.printBoard();
+render();
 
 /*
 fetch('/api/board').then(response => {
