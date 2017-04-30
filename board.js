@@ -249,9 +249,9 @@ export default class Board {
     let sourceCorner = null;
     let targetCorners = null;
     let minDistSquaredSum = null;
-    /*  
+    /*
      *  Loop over source corners and adjacent target corners. If the rays are
-     *  non-parallel, it's a valid result. Return the result with the lowest 
+     *  non-parallel, it's a valid result. Return the result with the lowest
      *  sum of squared ray lengths.
      */
     for (let i = 0; i < 4; i++) {
