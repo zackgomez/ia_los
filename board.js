@@ -195,6 +195,18 @@ export default class Board {
     }
     return true;
   }
+  isValidEdge(x: number, y: number, dir: EdgeDirection): bool {
+    if (x < 0 || x > this.width || y < 0 || y > this.height) {
+      return false;
+    }
+    if (x === this.width && dir === 'Right') {
+      return false;
+    }
+    if (y === this.height && dir === 'Down') {
+      return false;
+    }
+    return true;
+  }
   setCell(x: number, y: number, cell: Cell): void {
     if (!this.isValidCell(x, y)) {
       throw new Error(`setCell: (${x}, ${y}) is out of bounds`);
@@ -202,13 +214,7 @@ export default class Board {
     this.board[x + y * this.width] = cell;
   }
   setEdge(x: number, y: number, dir: EdgeDirection, edge: Edge): void {
-    if (x < 0 || x > this.width || y < 0 || y > this.height) {
-      throw new Error(`setEdge: (${x}, ${y}, ${dir}) is out of bounds`);
-    }
-    if (x === this.width && dir === 'Right') {
-      throw new Error(`setEdge: (${x}, ${y}, ${dir}) is out of bounds`);
-    }
-    if (y === this.height && dir === 'Down') {
+    if (!this.isValidEdge(x, y, dir)) {
       throw new Error(`setEdge: (${x}, ${y}, ${dir}) is out of bounds`);
     }
     const i = x + y * this.width;
@@ -545,17 +551,19 @@ export default class Board {
         if (true) {
           text += VERTICAL_EDGE[this.getEdge(i, j, 'Down')];
         }
+        const cell = this.getCell(i, j);
         if (_.isEqual({x: i, y: j}, source)) {
           text += 'S';
-        }
-        else if (_.isEqual({x: i, y: j}, target)) {
+        } else if (_.isEqual({x: i, y: j}, target)) {
           text += 'T';
-        }
-        else if (this.getCell(i, j) === 'Empty') {
+        } else if (cell === 'Empty') {
           text += ' ';
-        }
-        else {
+        } else if (cell == 'OutOfBounds') {
+          text += '■';
+        } else if (cell === 'Blocking') {
           text += 'X';
+        } else {
+          invariant(false, 'unknown cell: %s', cell);
         }
       }
       text += VERTICAL_EDGE[this.getEdge(this.width, j, 'Down')];

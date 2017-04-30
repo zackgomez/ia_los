@@ -5,7 +5,7 @@ import _ from 'lodash';
 import nullthrows from 'nullthrows';
 
 import {cellToPoint} from './board.js';
-import type Board, {Cell, Point, LineOfSightResult} from './board.js';
+import type Board, {Cell, Point, LineOfSightResult, EdgeDirection, Edge} from './board.js';
 import type {Piece, PieceMap} from './Piece.js';
 import {makeButton} from './UIUtils.js';
 
@@ -217,6 +217,7 @@ function updateBoardWithFigures(board: Board, figures: PieceMap) {
 export class TerrainTool extends Tool {
   selectedSubtool_: string = '';
   fillType_: ?Cell;
+  candidateEdge_: ?[Point, EdgeDirection];
 
   getName(): string {
     return 'Terrain';
@@ -230,6 +231,37 @@ export class TerrainTool extends Tool {
       return true;
     }
     return false;
+  }
+
+  affectedEdgeFromEvent(event: any, context: ToolContext): ?[Point, EdgeDirection] {
+    let x = event.data.global.x / context.SCALE;
+    let y = event.data.global.y / context.SCALE;
+    const cellX = Math.floor(x);
+    const cellY = Math.floor(y);
+    const xFrac = x - cellX;
+    const yFrac = y - cellY;
+
+    const THRESHOLD = 0.25;
+
+    const point = {x: cellX, y: cellY};
+
+    let candidates = [
+      [[{x: cellX, y: cellY}, 'Down'], xFrac], // Left
+      [[{x: cellX + 1, y: cellY}, 'Down'], 1 - xFrac], // Right
+      [[{x: cellX, y: cellY}, 'Right'], yFrac], // Top
+      [[{x: cellX, y: cellY + 1}, 'Right'], 1 - yFrac], // Bottom
+    ]
+
+    const [bestRet, bestDist] = _.maxBy(candidates, ([ret, dist]) => -dist);
+    if (bestDist > THRESHOLD) {
+      return null;
+    }
+
+    if (!context.board.isValidEdge(bestRet[0].x, bestRet[0].y, bestRet[1])) {
+      return null;
+    }
+
+    return bestRet;
   }
 
   onMouseDown(event: any, state: UIState, context: ToolContext): UIState {
@@ -254,6 +286,8 @@ export class TerrainTool extends Tool {
     return state;
   }
   onMouseMove(event: any, state: UIState, context: ToolContext): UIState {
+    this.candidateEdge_ = this.affectedEdgeFromEvent(event, context);
+    state.needsRender = true;
     if (!this.fillType_) {
       return state;
     }
@@ -292,6 +326,46 @@ export class TerrainTool extends Tool {
   }
   renderLayer(state: UIState, context: ToolContext): any {
     const layer = new PIXI.Container();
+
+    const BUTTON_SIZE = {
+      width: 50,
+      height: 30,
+    };
+    const PADDING = 10;
+    let x = context.viewWidth - PADDING - BUTTON_SIZE.width;
+    let y = context.viewHeight - PADDING - BUTTON_SIZE.height;
+
+    const BUTTONS = ['OOB', 'WALL'];
+    BUTTONS.forEach(title => {
+      const button = makeButton(
+        title,
+        BUTTON_SIZE,
+        {},
+        () => {
+          console.log('button', title);
+        },
+      );
+      button.x = x;
+      button.y = y;
+      layer.addChild(button);
+      y -= PADDING - BUTTON_SIZE.height;
+    });
+
+    const candidateEdge = this.candidateEdge_;
+    if (candidateEdge) {
+      let edgeOverlay = new PIXI.Graphics();
+      edgeOverlay.lineStyle(6, 0x4444EE, 0.8);
+      const [xdir, ydir] = (candidateEdge[1] === 'Down') ? [0, 1] : [1, 0];
+      edgeOverlay.moveTo(
+        context.SCALE * candidateEdge[0].x,
+        context.SCALE * candidateEdge[0].y,
+      );
+      edgeOverlay.lineTo(
+        context.SCALE * (candidateEdge[0].x + xdir),
+        context.SCALE * (candidateEdge[0].y + ydir),
+      );
+      layer.addChild(edgeOverlay);
+    }
 
     return layer;
   }
