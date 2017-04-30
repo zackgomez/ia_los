@@ -214,9 +214,18 @@ function updateBoardWithFigures(board: Board, figures: PieceMap) {
 }
 
 
+type TerrainSubtool = 'Cell' | 'Edge';
+
 export class TerrainTool extends Tool {
-  selectedSubtool_: string = '';
-  fillType_: ?Cell;
+  selectedSubtool_: TerrainSubtool = 'Cell';
+  dragging_: boolean = false;
+  dragCellType_: ?Cell = null;
+  dragEdgeType_: ?Edge = null;
+
+  cellType_: Cell = 'OutOfBounds';
+  candidateCell_: ?Point;
+
+  edgeType_: Edge = 'Wall';
   candidateEdge_: ?[Point, EdgeDirection];
 
   getName(): string {
@@ -263,6 +272,13 @@ export class TerrainTool extends Tool {
 
     return bestRet;
   }
+  candidateCellFromEvent(event: any, context: ToolContext): ?Point {
+    const point = context.cellPositionFromEvent(event);
+    if (context.board.isValidCell(point.x, point.y)) {
+      return point;
+    }
+    return null;
+  }
 
   onMouseDown(event: any, state: UIState, context: ToolContext): UIState {
     const cellPosition = context.cellPositionFromEvent(event);
@@ -272,52 +288,97 @@ export class TerrainTool extends Tool {
       return state;
     }
 
-    this.fillType_ = 'OutOfBounds';
-    board.setCell(cellPosition.x, cellPosition.y, this.fillType_);
+    switch(this.selectedSubtool_) {
+    case 'Cell':
+      if (!this.candidateCell_) {
+        return state;
+      }
+      this.dragCellType_ = this.cellType_;
+      break;
 
-    /*
-    board.setEdge(cellX, cellY, 'Down', 'Wall');
-    board.setEdge(cellX, cellY, 'Right', 'Wall');
-    board.setEdge(cellX + 1, cellY, 'Down', 'Wall');
-    board.setEdge(cellX, cellY + 1, 'Right', 'Wall');
-    */
+    case 'Edge':
+      if (!this.candidateEdge_) {
+        return state;
+      }
+      this.dragEdgeType_ = this.edgeType_;
+      break;
+    }
+
+    this.dragging_ = true;
+    this.writeIfPossible(context);
 
     state.needsRender = true;
     return state;
+  }
+  writeIfPossible(context: ToolContext): void {
+    if (!this.dragging_) {
+      return;
+    }
+    switch(this.selectedSubtool_) {
+    case 'Cell':
+      if (this.candidateCell_) {
+        this.setCellIfPossible(
+          context.board,
+          this.candidateCell_,
+          nullthrows(this.dragCellType_),
+        );
+      }
+      break;
+
+    case 'Edge':
+      if (this.candidateEdge_) {
+        const [{x, y}, dir] = this.candidateEdge_;
+        context.board.setEdge(x, y, dir, nullthrows(this.dragEdgeType_));
+      }
+      break;
+    }
   }
   onMouseMove(event: any, state: UIState, context: ToolContext): UIState {
-    this.candidateEdge_ = this.affectedEdgeFromEvent(event, context);
     state.needsRender = true;
-    if (!this.fillType_) {
-      return state;
+    switch(this.selectedSubtool_) {
+    case 'Cell':
+      this.candidateEdge_ = null;
+      this.candidateCell_ = this.candidateCellFromEvent(event, context);
+      break;
+    case 'Edge':
+      this.candidateEdge_ = this.affectedEdgeFromEvent(event, context);
+      this.candidateCell_ = null;
+      break;
     }
-    const updated = this.setCellIfPossible(
-      context.board,
-      context.cellPositionFromEvent(event),
-      nullthrows(this.fillType_),
-    );
-    state.needsRender = state.needsRender || updated;
+
+    this.writeIfPossible(context);
+
     return state;
   }
+  endDragging_(): void {
+    this.dragging_ = false;
+    this.dragCellType_ = null;
+    this.dragEdgeType_ = null;
+  }
   onMouseUp(event: any, state: UIState, context: ToolContext): UIState {
-    this.fillType_ = null;
+    this.endDragging_();
     return state;
   }
   onRightDown(event: any, state: UIState, context: ToolContext): UIState {
-    if (this.fillType_) {
+    if (this.dragging_) {
       return state;
     }
-    this.fillType_ = 'Empty';
-    const updated = this.setCellIfPossible(
-      context.board,
-      context.cellPositionFromEvent(event),
-      nullthrows(this.fillType_),
-    )
-    state.needsRender = state.needsRender || updated;
+    if (this.selectedSubtool_ === 'Cell') {
+      this.dragCellType_ = 'Empty';
+      const updated = this.setCellIfPossible(
+        context.board,
+        context.cellPositionFromEvent(event),
+        this.cellType_,
+      )
+    } else if (this.selectedSubtool_ === 'Edge') {
+      this.dragEdgeType_ = 'Clear';
+    }
+    this.dragging_ = true;
+    state.needsRender = true;
     return state;
   }
   onRightUp(event: any, state: UIState, context: ToolContext): UIState {
-    this.fillType_ = null;
+    this.endDragging_();
     return state;
   }
 
@@ -335,14 +396,14 @@ export class TerrainTool extends Tool {
     let x = context.viewWidth - PADDING - BUTTON_SIZE.width;
     let y = context.viewHeight - PADDING - BUTTON_SIZE.height;
 
-    const BUTTONS = ['OOB', 'WALL'];
+    const BUTTONS = ['Edge', 'Cell'];
     BUTTONS.forEach(title => {
       const button = makeButton(
         title,
         BUTTON_SIZE,
         {},
         () => {
-          console.log('button', title);
+          this.selectedSubtool_ = title;
         },
       );
       button.x = x;
@@ -365,6 +426,19 @@ export class TerrainTool extends Tool {
         context.SCALE * (candidateEdge[0].y + ydir),
       );
       layer.addChild(edgeOverlay);
+    }
+    const candidateCell = this.candidateCell_;
+    if (candidateCell) {
+      let cellOverlay = new PIXI.Graphics();
+      cellOverlay.beginFill(0x4444EE, 0.5);
+      cellOverlay.drawRect(
+        context.SCALE * candidateCell.x,
+        context.SCALE * candidateCell.y,
+        context.SCALE,
+        context.SCALE,
+      );
+      cellOverlay.endFill();
+      layer.addChild(cellOverlay);
     }
 
     return layer;
