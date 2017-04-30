@@ -7,7 +7,7 @@ import {gridCastRay} from './RayCast';
 
 export type Cell = 'Empty' | 'Blocking' | 'OutOfBounds';
 export type Corner = 'UpLeft' | 'UpRight' | 'DownLeft' | 'DownRight';
-export type Edge = 'Clear' | 'Blocked';
+export type Edge = 'Clear' | 'Blocking' | 'Impassable' | 'Wall';
 export type EdgeDirection = 'Down' | 'Right';
 export type Direction = 'Right' | 'DownRight' | 'Down' | 'DownLeft'
                          | 'Left' | 'UpLeft' | 'Up' | 'UpRight';
@@ -84,7 +84,7 @@ function distSquared(
   return (dx * dx + dy * dy);
 }
 
-function oppositeDirection(dir) {
+function oppositeDirection(dir: Direction): Direction {
   let index = 0;
   for (let i = 0; i < DIRECTIONS.length; i++) {
     if (DIRECTIONS[i] === dir) {
@@ -195,21 +195,38 @@ export default class Board {
     }
     this.board[x + y * this.width] = cell;
   }
+  setEdge(x: number, y: number, dir: EdgeDirection, edge: Edge): void {
+    if (x < 0 || x > this.width || y < 0 || y > this.height) {
+      throw new Error(`setEdge: (${x}, ${y}, ${dir}) is out of bounds`);
+    }
+    if (x === this.width && dir === 'Right') {
+      throw new Error(`setEdge: (${x}, ${y}, ${dir}) is out of bounds`);
+    }
+    if (y === this.height && dir === 'Down') {
+      throw new Error(`setEdge: (${x}, ${y}, ${dir}) is out of bounds`);
+    }
+    const i = x + y * this.width;
+    if (dir === 'Down') {
+      this.downEdges[i] = edge;
+    } else if (dir === 'Right') {
+      this.rightEdges[i] = edge;
+    }
+  }
   clearBlocking(): void {
     this.board = this.board.map(cell => {
       return cell === 'Blocking' ? 'Empty' : cell;
     });
   }
 
-  getEdge(x: number, y: number, dir: Direction): Edge {
+  getEdge(x: number, y: number, dir: EdgeDirection): Edge {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
-      return 'Blocked';
+      return 'Wall';
     }
     if (x === 0 && dir === 'Down') {
-      return 'Blocked';
+      return 'Wall';
     }
     if (y === 0 && dir === 'Right') {
-      return 'Blocked';
+      return 'Wall';
     }
     if (dir === 'Down') {
       return this.downEdges[x + y * this.width];
@@ -218,6 +235,10 @@ export default class Board {
       return this.rightEdges[x + y * this.width];
     }
     throw new Error('not a valid edge');
+  }
+  doesEdgeBlockLineOfSight(x: number, y: number, dir: EdgeDirection): boolean {
+    const edge = this.getEdge(x, y, dir);
+    return edge === 'Wall' || edge === 'Blocking';
   }
 
   /*
@@ -317,10 +338,11 @@ export default class Board {
       if (!checkEdgePoint) {
         throw new Error('edge not found');
       }
-      if (this.getEdge(
+      if (this.doesEdgeBlockLineOfSight(
         checkEdgePoint.x,
         checkEdgePoint.y,
-        checkEdgePoint.dir) === 'Blocked') {
+        checkEdgePoint.dir,
+      )) {
         // console.log('checkPoint: CW blocked at idx = ' + checkIndex);
         // console.log(checkEdgePoint);
         blockedCW = true;
@@ -344,10 +366,11 @@ export default class Board {
       if (!checkEdgePoint) {
         throw new Error('edge not found');
       }
-      if (this.getEdge(
+      if (this.doesEdgeBlockLineOfSight(
         checkEdgePoint.x,
         checkEdgePoint.y,
-        checkEdgePoint.dir) === 'Blocked') {
+        checkEdgePoint.dir,
+      )) {
         // console.log('checkPoint: CCW blocked at idx = ' + checkIndex);
         // console.log(checkEdgePoint);
         blockedCCW = true;
@@ -484,20 +507,37 @@ export default class Board {
     this.printBoard({x: sourceX, y: sourceY}, {x: targetX, y: targetY}, markedCorners);
   }
 
-  printBoard(source: ?Point, target: ?Point, markedCorners: ?Array<Point>): void {
+  printBoard(
+    source: ?Point,
+    target: ?Point,
+    markedCorners: ?Array<Point>,
+  ): void {
+    const HORIZONTAL_EDGE = {
+      'Clear': ' ',
+      'Wall': '━',
+      'Blocking': '─',
+      'Impassable': '┄',
+    }
+    const VERTICAL_EDGE = {
+      'Clear': ' ',
+      'Wall': '┃',
+      'Blocking': '│',
+      'Impassable': '┆',
+    }
     let text = ''
     for (let j = 0; j < this.height; j++) {
       if (true) {
         for (let i = 0; i < this.width; i++) {
           text += (!!_.find(markedCorners, {x: i, y: j})) ? 'o' : '+';
-          text += (this.getEdge(i, j, 'Right') === 'Clear') ? ' ' : '-';
+          const edge = this.getEdge(i, j, 'Right');
+          text += HORIZONTAL_EDGE[edge];
         }
         text += (!!_.find(markedCorners, {x: this.width, y: j})) ? 'o' : '+';
         text += '\n';
       }
       for (let i = 0; i < this.width; i++) {
         if (true) {
-          text += (this.getEdge(i, j, 'Down') === 'Clear') ? ' ' : '|';
+          text += VERTICAL_EDGE[this.getEdge(i, j, 'Down')];
         }
         if (_.isEqual({x: i, y: j}, source)) {
           text += 'S';
@@ -512,12 +552,12 @@ export default class Board {
           text += 'X';
         }
       }
-      text += (this.getEdge(this.width, j, 'Down') === 'Clear') ? ' ' : '|';
+      text += VERTICAL_EDGE[this.getEdge(this.width, j, 'Down')];
       text += '\n';
     }
     for (let i = 0; i < this.width; i++) {
       text += (!!_.find(markedCorners, {x: i, y: this.height})) ? 'o' : '+';
-      text += (this.getEdge(i, this.height, 'Right') === 'Clear') ? ' ' : '-';
+      text += HORIZONTAL_EDGE[this.getEdge(i, this.height, 'Right')];
     }
     text += (!!_.find(markedCorners, {x: this.width, y: this.height})) ? 'o' : '+';
     console.log(text);
@@ -531,8 +571,8 @@ export function boardFromRows(rows: Array<Array<string>>): Board {
   };
   const INPUT_TO_EDGE_MAP = {
     ' ': 'Clear',
-    '|': 'Blocked',
-    '-': 'Blocked',
+    '|': 'Blocking',
+    '-': 'Blocking',
   };
   const height = Math.floor(rows.length / 2);
   const width = Math.floor(rows[0].length / 2);
@@ -561,7 +601,7 @@ export function boardFromRows(rows: Array<Array<string>>): Board {
     else if (a % 2 === 1 && b % 2 === 0 && b !== height * 2) {
       let edge;
       if (b === 0) {
-        edge = 'Blocked';
+        edge = 'Blocking';
       }
       else {
         edge = INPUT_TO_EDGE_MAP[flattenedBoard[i]];
@@ -576,7 +616,7 @@ export function boardFromRows(rows: Array<Array<string>>): Board {
     else if (a % 2 === 0 && b % 2 === 1 && a !== width * 2) {
       let edge;
       if (a === 0) {
-        edge = 'Blocked';
+        edge = 'Blocking';
       }
       else {
         edge = INPUT_TO_EDGE_MAP[flattenedBoard[i]];
