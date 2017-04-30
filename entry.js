@@ -12,6 +12,8 @@ import nullthrows from 'nullthrows';
 import type {ToolEnum, UIState, Tool, ToolContext} from './tools.js';
 import {getToolDefinitions} from './tools.js';
 import type {Piece} from './Piece.js';
+import {makeButton} from './UIUtils.js';
+
 
 const VIEWPORT_WIDTH = 640;
 const VIEWPORT_HEIGHT = 480;
@@ -22,17 +24,18 @@ renderer.backgroundColor = 0x777777;
 
 if (document.body) {
   document.body.appendChild(renderer.view);
+  renderer.view.addEventListener('contextmenu', (e) => { e.preventDefault(); });
 }
 
 const interactionManager = renderer.plugins.interaction;
 
 const SCALE = 50;
 
-function getGridLayer(board) {
+function getGridLayer(board: Board) {
   const width = board.getWidth();
   const height = board.getHeight();
   const grid = new PIXI.Graphics();
-  grid.lineStyle(2, 0x000000, 1);
+  grid.lineStyle(2, 0x222222, 1);
   for (let x = 0; x <= width; x++) {
     grid.moveTo(x * SCALE, 0);
     grid.lineTo(x * SCALE, height * SCALE);
@@ -41,23 +44,70 @@ function getGridLayer(board) {
     grid.moveTo(0, y * SCALE);
     grid.lineTo(width * SCALE, y * SCALE);
   }
+
+  grid.beginFill(0x000000, 1);
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      const cell = board.getCell(x, y);
+      if (cell === 'OutOfBounds') {
+        grid.drawRect(x * SCALE, y * SCALE, SCALE, SCALE);
+      }
+    }
+  }
+  grid.endFill();
   return grid;
 }
 
 function getEdgeLayer(board) {
   let edgeGraphics = new PIXI.Graphics();
-  edgeGraphics.lineStyle(4, 0xFF0000, 1);
 
   for (let x = 0; x < board.getWidth(); x++) {
     for (let y = 0; y < board.getHeight(); y++) {
       ['Down', 'Right'].forEach(dir => {
-        if (board.getEdge(x, y, dir) === 'Clear') {
+        const edge = board.getEdge(x, y, dir);
+        if (edge === 'Clear') {
+          return;
+        } else if (edge === 'Blocking' || edge === 'Impassable') {
+          edgeGraphics.lineStyle(4, 0xFF0000, 1);
+        } else if (edge === 'Wall') {
+          edgeGraphics.lineStyle(6, 0x000000, 1);
+        }
+
+        const xdir = (dir === 'Right' ? 1 : 0);
+        const ydir = (dir === 'Down' ? 1 : 0)
+
+        if (edge === 'Impassable') {
+          edgeGraphics.moveTo(
+            SCALE * x,
+            SCALE * y,
+          );
+          edgeGraphics.lineTo(
+            SCALE * (x + xdir * 1/6),
+            SCALE * (y + ydir * 1/6),
+          );
+          edgeGraphics.moveTo(
+            SCALE * (x + xdir * 2/6),
+            SCALE * (y + ydir * 2/6),
+          );
+          edgeGraphics.lineTo(
+            SCALE * (x + xdir * 4/6),
+            SCALE * (y + ydir * 4/6),
+          );
+          edgeGraphics.moveTo(
+            SCALE * (x + xdir * 5/6),
+            SCALE * (y + ydir * 5/6),
+          );
+          edgeGraphics.lineTo(
+            SCALE * (x + xdir * 6/6),
+            SCALE * (y + ydir * 6/6),
+          );
           return;
         }
+
         edgeGraphics.moveTo(SCALE * x, SCALE * y);
         edgeGraphics.lineTo(
-          SCALE * (x + (dir === 'Right' ? 1 : 0)),
-          SCALE * (y + (dir === 'Down' ? 1 : 0))
+          SCALE * (x + xdir),
+          SCALE * (y + ydir)
         );
       });
     }
@@ -147,7 +197,9 @@ function render() {
   if (board) {
     root.addChild(getGridLayer(board));
     root.addChild(getEdgeLayer(board));
-    root.addChild(makeFigureLayer());
+    if (uiState.currentTool.showFigureLayer(uiState, getToolContext())) {
+      root.addChild(makeFigureLayer());
+    }
     root.addChild(makeUILayer(uiState));
   }
 
@@ -165,10 +217,19 @@ function render() {
 }
 
 function getToolContext(): ToolContext {
+  const cellPositionFromEvent = (e) => {
+    return {
+      x: Math.floor(e.data.global.x / SCALE),
+      y: Math.floor(e.data.global.y / SCALE),
+    }
+  };
   return {
     figures,
     SCALE,
     board: globalBoard,
+    viewWidth: VIEWPORT_WIDTH,
+    viewHeight: VIEWPORT_HEIGHT,
+    cellPositionFromEvent,
   };
 }
 
@@ -190,6 +251,14 @@ interactionManager.on('mouseup', e => {
   uiState = uiState.currentTool.onMouseUp(e, uiState, getToolContext());
   renderIfNecessary();
 });
+interactionManager.on('rightdown', e => {
+  uiState = uiState.currentTool.onRightDown(e, uiState, getToolContext());
+  renderIfNecessary();
+});
+interactionManager.on('rightup', e => {
+  uiState = uiState.currentTool.onRightUp(e, uiState, getToolContext());
+  renderIfNecessary();
+});
 
 
 const allTools = getToolDefinitions();
@@ -209,30 +278,35 @@ function setCurrentTool(newTool: Tool): void {
 function makeUILayer(state: UIState) {
   let layer = new PIXI.Container();
 
-  layer.addChild(
-    uiState.currentTool.renderLayer(uiState, getToolContext()),
-  );
+ const toolLayer = uiState.currentTool.renderLayer(
+   uiState,
+   getToolContext(),
+ );
+ if (toolLayer) {
+   layer.addChild(toolLayer);
+ }
 
-  let x = 10;
+
+  const BUTTON_SIZE = {width: 50, height: 30};
+  let x = VIEWPORT_WIDTH - 10 - BUTTON_SIZE.width;
   let y = 10;
-  const BUTTON_DIM = 30;
 
   state.availableTools.forEach((tool) => {
     const selected = tool === state.currentTool;
     const style = {
-      align: 'center',
-      fontSize: 16,
       fill: selected ? '#00FF00' : '#FFFFFF',
     }
-    let button = new PIXI.Text(tool.getName(), style);
+    const button = makeButton(
+      tool.getName(),
+      BUTTON_SIZE,
+      style,
+      () => {
+        setCurrentTool(tool);
+      },
+    );
     button.x = x;
     button.y = y;
-    y += BUTTON_DIM;
-    button.interactive = true;
-    button.buttonMode = true;
-    button.on('pointerdown', () => {
-      setCurrentTool(tool);
-    });
+    y += BUTTON_SIZE.height;
     layer.addChild(button);
   });
 

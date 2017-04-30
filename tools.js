@@ -5,8 +5,9 @@ import _ from 'lodash';
 import nullthrows from 'nullthrows';
 
 import {cellToPoint} from './board.js';
-import type Board, {Point, LineOfSightResult} from './board.js';
+import type Board, {Cell, Point, LineOfSightResult} from './board.js';
 import type {Piece, PieceMap} from './Piece.js';
+import {makeButton} from './UIUtils.js';
 
 export type ToolEnum = 'pointer' | 'terrain';
 
@@ -22,6 +23,10 @@ export type ToolContext = {
   board: Board,
   figures: {[key: string]: Piece};
   SCALE: number;
+  viewWidth: number;
+  viewHeight: number;
+
+  cellPositionFromEvent: (e: any) => Point;
 }
 
 export class Tool {
@@ -37,7 +42,16 @@ export class Tool {
   onMouseUp(event: any, state: UIState, context: ToolContext): UIState {
     return state;
   }
+  onRightDown(event: any, state: UIState, context: ToolContext): UIState {
+    return state;
+  }
+  onRightUp(event: any, state: UIState, context: ToolContext): UIState {
+    return state;
+  }
 
+  showFigureLayer(state: UIState, context: ToolContext): bool {
+    return true;
+  }
   renderLayer(state: UIState, context: ToolContext): any {
     return null;
   }
@@ -200,9 +214,94 @@ function updateBoardWithFigures(board: Board, figures: PieceMap) {
 }
 
 
+export class TerrainTool extends Tool {
+  selectedSubtool_: string = '';
+  fillType_: ?Cell;
+
+  getName(): string {
+    return 'Terrain';
+  }
+
+  setCellIfPossible(board: Board, cellPosition: Point, cell: Cell): bool {
+    if (board.isValidCell(cellPosition.x, cellPosition.y)) {
+      if (board.getCell(cellPosition.x, cellPosition.y) !== cell) {
+        board.setCell(cellPosition.x, cellPosition.y, cell);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  onMouseDown(event: any, state: UIState, context: ToolContext): UIState {
+    const cellPosition = context.cellPositionFromEvent(event);
+    const board = context.board;
+
+    if (!board.isValidCell(cellPosition.x, cellPosition.y)) {
+      return state;
+    }
+
+    this.fillType_ = 'OutOfBounds';
+    board.setCell(cellPosition.x, cellPosition.y, this.fillType_);
+
+    /*
+    board.setEdge(cellX, cellY, 'Down', 'Wall');
+    board.setEdge(cellX, cellY, 'Right', 'Wall');
+    board.setEdge(cellX + 1, cellY, 'Down', 'Wall');
+    board.setEdge(cellX, cellY + 1, 'Right', 'Wall');
+    */
+
+    state.needsRender = true;
+    return state;
+  }
+  onMouseMove(event: any, state: UIState, context: ToolContext): UIState {
+    if (!this.fillType_) {
+      return state;
+    }
+    const updated = this.setCellIfPossible(
+      context.board,
+      context.cellPositionFromEvent(event),
+      nullthrows(this.fillType_),
+    );
+    state.needsRender = state.needsRender || updated;
+    return state;
+  }
+  onMouseUp(event: any, state: UIState, context: ToolContext): UIState {
+    this.fillType_ = null;
+    return state;
+  }
+  onRightDown(event: any, state: UIState, context: ToolContext): UIState {
+    if (this.fillType_) {
+      return state;
+    }
+    this.fillType_ = 'Empty';
+    const updated = this.setCellIfPossible(
+      context.board,
+      context.cellPositionFromEvent(event),
+      nullthrows(this.fillType_),
+    )
+    state.needsRender = state.needsRender || updated;
+    return state;
+  }
+  onRightUp(event: any, state: UIState, context: ToolContext): UIState {
+    this.fillType_ = null;
+    return state;
+  }
+
+  showFigureLayer(state: UIState, context: ToolContext): bool {
+    return false;
+  }
+  renderLayer(state: UIState, context: ToolContext): any {
+    const layer = new PIXI.Container();
+
+    return layer;
+  }
+};
+
+
 
 export function getToolDefinitions(): Array<Tool> {
   return [
     new PointerTool(),
+    new TerrainTool(),
   ];
 }

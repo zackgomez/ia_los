@@ -189,8 +189,14 @@ export default class Board {
     return this.board[x + y * this.width];
   }
 
-  setCell(x: number, y: number, cell: Cell): void {
+  isValidCell(x: number, y: number): bool {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+      return false;
+    }
+    return true;
+  }
+  setCell(x: number, y: number, cell: Cell): void {
+    if (!this.isValidCell(x, y)) {
       throw new Error(`setCell: (${x}, ${y}) is out of bounds`);
     }
     this.board[x + y * this.width] = cell;
