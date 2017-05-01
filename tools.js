@@ -250,7 +250,7 @@ export class TerrainTool extends Tool {
     const xFrac = x - cellX;
     const yFrac = y - cellY;
 
-    const THRESHOLD = 0.25;
+    const THRESHOLD = 0.3;
 
     const point = {x: cellX, y: cellY};
 
@@ -261,8 +261,14 @@ export class TerrainTool extends Tool {
       [[{x: cellX, y: cellY + 1}, 'Right'], 1 - yFrac], // Bottom
     ]
 
-    const [bestRet, bestDist] = _.maxBy(candidates, ([ret, dist]) => -dist);
+    candidates = candidates.sort(([a, distA], [b, distB]) => distA - distB);
+    const [bestRet, bestDist] = candidates[0];
     if (bestDist > THRESHOLD) {
+      return null;
+    }
+
+    const CORNER_THRESHOLD = 0.2;
+    if (candidates[1][1] < CORNER_THRESHOLD) {
       return null;
     }
 
