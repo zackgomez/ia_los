@@ -61,9 +61,12 @@ function getGridLayer(board: Board) {
 function getEdgeLayer(board) {
   let edgeGraphics = new PIXI.Graphics();
 
-  for (let x = 0; x < board.getWidth(); x++) {
-    for (let y = 0; y < board.getHeight(); y++) {
+  for (let x = 0; x <= board.getWidth(); x++) {
+    for (let y = 0; y <= board.getHeight(); y++) {
       ['Down', 'Right'].forEach(dir => {
+        if (!board.isValidEdge(x, y, dir)) {
+          return;
+        }
         const edge = board.getEdge(x, y, dir);
         if (edge === 'Clear') {
           return;
@@ -74,7 +77,7 @@ function getEdgeLayer(board) {
         }
 
         const xdir = (dir === 'Right' ? 1 : 0);
-        const ydir = (dir === 'Down' ? 1 : 0)
+        const ydir = (dir === 'Down' ? 1 : 0);
 
         if (edge === 'Impassable') {
           edgeGraphics.moveTo(
@@ -188,6 +191,10 @@ function makeFigureLayer() {
 
 let stage = null;
 function render() {
+  if (stage) {
+    stage.destroy({children: true});
+    stage = null;
+  }
   uiState.needsRender = false;
   const mousePosition = interactionManager.mouse.global;
 

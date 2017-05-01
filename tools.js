@@ -365,15 +365,11 @@ export class TerrainTool extends Tool {
     }
     if (this.selectedSubtool_ === 'Cell') {
       this.dragCellType_ = 'Empty';
-      const updated = this.setCellIfPossible(
-        context.board,
-        context.cellPositionFromEvent(event),
-        this.cellType_,
-      )
     } else if (this.selectedSubtool_ === 'Edge') {
       this.dragEdgeType_ = 'Clear';
     }
     this.dragging_ = true;
+    this.writeIfPossible(context);
     state.needsRender = true;
     return state;
   }
@@ -389,27 +385,38 @@ export class TerrainTool extends Tool {
     const layer = new PIXI.Container();
 
     const BUTTON_SIZE = {
-      width: 50,
-      height: 30,
+      width: 100,
+      height: 15,
     };
     const PADDING = 10;
     let x = context.viewWidth - PADDING - BUTTON_SIZE.width;
     let y = context.viewHeight - PADDING - BUTTON_SIZE.height;
 
-    const BUTTONS = ['Edge', 'Cell'];
-    BUTTONS.forEach(title => {
+    const BUTTONS = [
+      ['Cell', 'OutOfBounds'],
+      ['Edge', 'Wall'],
+      ['Edge', 'Impassable'],
+      ['Edge', 'Blocking'],
+    ];
+    BUTTONS.forEach(([subtool, type]) => {
+      const title = subtool + type;
       const button = makeButton(
         title,
         BUTTON_SIZE,
         {},
         () => {
-          this.selectedSubtool_ = title;
+          this.selectedSubtool_ = subtool;
+          if (this.selectedSubtool_ === 'Edge') {
+            this.edgeType_ = (type: any);
+          } else if (this.selectedSubtool_ === 'Cell') {
+            this.cellType_ = (type: any);
+          }
         },
       );
       button.x = x;
       button.y = y;
       layer.addChild(button);
-      y -= PADDING - BUTTON_SIZE.height;
+      y -= (PADDING + BUTTON_SIZE.height);
     });
 
     const candidateEdge = this.candidateEdge_;

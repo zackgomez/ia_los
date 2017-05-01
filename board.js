@@ -453,12 +453,9 @@ export default class Board {
         return true;
       },
       (x, y, dir) => {
-        const edge = this.getEdge(x, y, dir);
-        // console.log(x, y, dir, edge);
-        if (edge === 'Clear') {
+        if (!this.doesEdgeBlockLineOfSight(x, y, dir)) {
           return;
         }
-        // console.log('blocked by edge:', x, y, dir);
         return true;
       },
       (x, y) => {
