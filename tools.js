@@ -4,10 +4,11 @@
 import _ from 'lodash';
 import nullthrows from 'nullthrows';
 
-import {cellToPoint} from './board.js';
-import type Board, {Cell, Point, LineOfSightResult, EdgeDirection, Edge} from './board.js';
-import type {Piece, PieceMap} from './Piece.js';
-import {makeButton} from './UIUtils.js';
+import Board, {cellToPoint} from './board';
+import type {Cell, Point, LineOfSightResult, EdgeDirection, Edge} from './board';
+import type {Piece, PieceMap} from './Piece';
+import {makeButton} from './UIUtils';
+import {resizeBoard} from './BoardHelpers';
 
 export type ToolEnum = 'pointer' | 'terrain';
 
@@ -27,6 +28,7 @@ export type ToolContext = {
   viewHeight: number;
 
   cellPositionFromEvent: (e: any) => Point;
+  setBoard: (board: Board) => void;
 }
 
 export class Tool {
@@ -242,6 +244,23 @@ export class TerrainTool extends Tool {
     return false;
   }
 
+  increaseMapSize(context: ToolContext): void {
+    const {board} = context;
+    const width = board.getWidth() + 1;
+    const height = board.getHeight() + 1;
+    const newBoard = resizeBoard(board, width, height);
+    context.setBoard(newBoard);
+  }
+  decreaseMapSize(context: ToolContext): void {
+    const {board} = context;
+    const newBoard = resizeBoard(
+      board,
+      board.getWidth() - 1,
+      board.getHeight() - 1,
+    );
+    context.setBoard(newBoard);
+  }
+
   affectedEdgeFromEvent(event: any, context: ToolContext): ?[Point, EdgeDirection] {
     let x = event.data.global.x / context.SCALE;
     let y = event.data.global.y / context.SCALE;
@@ -398,6 +417,19 @@ export class TerrainTool extends Tool {
     let x = context.viewWidth - PADDING - BUTTON_SIZE.width;
     let y = context.viewHeight - PADDING - BUTTON_SIZE.height;
 
+    const addButton = (title: string, onClick: () => void) => {
+      const button = makeButton(
+        title,
+        BUTTON_SIZE,
+        {},
+        onClick,
+      );
+      button.x = x;
+      button.y = y;
+      layer.addChild(button);
+      y -= (PADDING + BUTTON_SIZE.height);
+    }
+
     const BUTTONS = [
       ['Cell', 'OutOfBounds'],
       ['Edge', 'Wall'],
@@ -406,10 +438,8 @@ export class TerrainTool extends Tool {
     ];
     BUTTONS.forEach(([subtool, type]) => {
       const title = subtool + type;
-      const button = makeButton(
+      addButton(
         title,
-        BUTTON_SIZE,
-        {},
         () => {
           this.selectedSubtool_ = subtool;
           if (this.selectedSubtool_ === 'Edge') {
@@ -419,10 +449,16 @@ export class TerrainTool extends Tool {
           }
         },
       );
-      button.x = x;
-      button.y = y;
-      layer.addChild(button);
-      y -= (PADDING + BUTTON_SIZE.height);
+    });
+
+    y -= 2 * BUTTON_SIZE.height;
+
+    const MAP_BUTTONS = [
+      ['+ Map', () => this.increaseMapSize(context)],
+      ['- Map', () => this.decreaseMapSize(context)],
+    ];
+    MAP_BUTTONS.forEach(([title, onClick]) => {
+      addButton(title, onClick);
     });
 
     const candidateEdge = this.candidateEdge_;

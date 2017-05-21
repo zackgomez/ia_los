@@ -15,8 +15,8 @@ import type {Piece} from './Piece.js';
 import {makeButton} from './UIUtils.js';
 
 
-const VIEWPORT_WIDTH = 640;
-const VIEWPORT_HEIGHT = 480;
+const VIEWPORT_WIDTH = 1280;
+const VIEWPORT_HEIGHT = 720;
 
 let renderer = new PIXI.autoDetectRenderer(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 renderer.backgroundColor = 0x777777;
@@ -161,6 +161,7 @@ function makeFigure(
 let figures: {[key: string]: Piece} = {};
 
 function setupFigures() {
+  figures = {};
   const source = makeFigure(makeFigureID(), 'source', 0x0000FF, 2, 2);
   figures[source.id] = source;
 
@@ -237,6 +238,7 @@ function getToolContext(): ToolContext {
     viewWidth: VIEWPORT_WIDTH,
     viewHeight: VIEWPORT_HEIGHT,
     cellPositionFromEvent,
+    setBoard,
   };
 }
 
@@ -324,6 +326,7 @@ let globalBoard = null;
 function setBoard(board) {
   globalBoard = board;
   setupFigures();
+  uiState.needsRender = true;
 }
 
 (() => {
