@@ -244,19 +244,12 @@ export class TerrainTool extends Tool {
     return false;
   }
 
-  increaseMapSize(context: ToolContext): void {
-    const {board} = context;
-    const width = board.getWidth() + 1;
-    const height = board.getHeight() + 1;
-    const newBoard = resizeBoard(board, width, height);
-    context.setBoard(newBoard);
-  }
-  decreaseMapSize(context: ToolContext): void {
+  resizeBoard(width: number, height: number, context: ToolContext) {
     const {board} = context;
     const newBoard = resizeBoard(
       board,
-      board.getWidth() - 1,
-      board.getHeight() - 1,
+      width,
+      height,
     );
     context.setBoard(newBoard);
   }
@@ -453,9 +446,20 @@ export class TerrainTool extends Tool {
 
     y -= 2 * BUTTON_SIZE.height;
 
+    const {board} = context;
     const MAP_BUTTONS = [
-      ['+ Map', () => this.increaseMapSize(context)],
-      ['- Map', () => this.decreaseMapSize(context)],
+      ['- Height', () => {
+        this.resizeBoard(board.getWidth(), board.getHeight() - 1, context);
+      }],
+      ['+ Height', () => {
+        this.resizeBoard(board.getWidth(), board.getHeight() + 1, context);
+      }],
+      ['- Width', () => {
+        this.resizeBoard(board.getWidth() - 1, board.getHeight(), context);
+      }],
+      ['+ Width', () => {
+        this.resizeBoard(board.getWidth() + 1, board.getHeight(), context);
+      }],
     ];
     MAP_BUTTONS.forEach(([title, onClick]) => {
       addButton(title, onClick);
